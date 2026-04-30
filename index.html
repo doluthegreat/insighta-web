@@ -2,46 +2,123 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Search — Insighta Labs+</title>
+    <title>Insighta Labs+</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="search-container">
-        <h1>Insighta Labs+</h1>
-        <p>Institutional Intelligence Portal</p>
-
-        <input type="text" id="query" placeholder="Search profiles...">
-        <button onclick="doSearch()" style="margin-top:20px">Execute Query</button>
-        
-        <div id="results"></div>
-        <button onclick="logout()" style="margin-top:50px; background:#ff3b30; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer">Logout</button>
+    <div id="app">
+        <!-- JS will inject either the Login Page or the App Layout here -->
     </div>
 
     <script>
-        // --- AUTH GUARD ---
-        const params = new URLSearchParams(window.location.search);
-        const tokenFromUrl = params.get('token');
+        const API_BASE = "https://insighta-backend-production-4f18.up.railway.app";
+        
+        // 1. Auth Guard Logic
+        async function checkAuth() {
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('token');
+            if (token) {
+                localStorage.setItem('insighta_jwt', token);
+                window.history.replaceState({}, document.title, "/");
+            }
 
-        if (tokenFromUrl) {
-            localStorage.setItem('insighta_jwt', tokenFromUrl);
-            window.history.replaceState({}, document.title, "/index.html");
+            const jwt = localStorage.getItem('insighta_jwt');
+            if (!jwt) {
+                renderLogin();
+            } else {
+                renderDashboard();
+            }
         }
 
-        if (!localStorage.getItem('insighta_jwt')) {
-            window.location.href = "login.html";
+        function renderLogin() {
+            document.getElementById('app').innerHTML = `
+                <div class="login-wrap">
+                    <div class="login-card">
+                        <h1>Insighta Labs+</h1>
+                        <p>Institutional Intelligence Access</p>
+                        <a href="${API_BASE}/auth/github" class="btn-github">
+                            Sign in with GitHub
+                        </a>
+                    </div>
+                </div>
+            `;
         }
 
-        // --- SEARCH LOGIC ---
-        async function doSearch() {
+        function renderDashboard() {
+            document.getElementById('app').innerHTML = `
+                <div class="app-layout">
+                    <aside class="sidebar">
+                        <div class="sidebar-logo">Insighta Labs+</div>
+                        <nav class="sidebar-nav">
+                            <a href="#" class="active" onclick="showSection('search')">Natural Search</a>
+                            <a href="#" onclick="showSection('profiles')">Profiles</a>
+                            <a href="#" onclick="showSection('analytics')">Analytics</a>
+                        </nav>
+                        <div class="sidebar-footer">
+                            <a href="#" onclick="logout()" style="color:var(--error)">Logout</a>
+                        </div>
+                    </aside>
+                    <main class="main-content">
+                        <div id="content-area">
+                            <h2 class="page-title">Natural Search</h2>
+                            <div class="card">
+                                <div class="filter-bar">
+                                    <input type="text" id="query" placeholder="Search institutional data..." style="flex:1">
+                                    <button onclick="runSearch()">Execute Query</button>
+                                </div>
+                                <div id="loader">Processing request...</div>
+                                <div class="table-wrap">
+                                    <table>
+                                        <thead>
+                                            <tr><th>Name</th><th>Role</th><th>Country</th><th>Status</th></tr>
+                                        </thead>
+                                        <tbody id="results-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            `;
+        }
+
+        async function runSearch() {
             const q = document.getElementById('query').value;
-            const token = localStorage.getItem('insighta_jwt');
-            // Fetch logic here...
+            const loader = document.getElementById('loader');
+            const tbody = document.getElementById('results-body');
+            
+            loader.style.display = 'block';
+            try {
+                const res = await fetch(`${API_BASE}/api/profiles/search?q=${q}`, {
+                    headers: { 
+                        'Authorization': `Bearer ${localStorage.getItem('insighta_jwt')}`,
+                        'X-API-Version': '1' 
+                    }
+                });
+                const result = await res.json();
+                const data = result.data || [];
+                
+                tbody.innerHTML = data.map(p => `
+                    <tr>
+                        <td><strong>${p.name}</strong></td>
+                        <td><span class="badge badge-analyst">${p.age_group || 'N/A'}</span></td>
+                        <td>${p.country_name || 'Global'}</td>
+                        <td style="color:var(--success)">Verified</td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error("Search failed", e);
+            } finally {
+                loader.style.display = 'none';
+            }
         }
 
         function logout() {
             localStorage.removeItem('insighta_jwt');
-            window.location.href = "login.html";
+            location.reload();
         }
+
+        checkAuth();
     </script>
 </body>
 </html>
