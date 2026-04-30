@@ -1,3 +1,21 @@
+
+const params = new URLSearchParams(window.location.search);
+const token = params.get('token');
+
+if (token) {
+    // We just logged in!
+    localStorage.setItem('insighta_jwt', token);
+    // Remove token from URL immediately so refresh doesn't break
+    window.history.replaceState({}, document.title, "/index.html");
+}
+
+// Now check if we are actually logged in
+if (!localStorage.getItem('insighta_jwt')) {
+    window.location.href = "login.html";
+}
+
+// The rest of your search functions go here...
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
