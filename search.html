@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Search — Insighta Labs+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Natural Language Search</h1>
+
+<div class="card" style="margin-bottom:24px">
+  <p style="color:var(--muted);font-size:.875rem;margin-bottom:16px">
+    Try: <em>"young males from nigeria"</em>, <em>"senior female adults"</em>, <em>"adults over 30 from kenya"</em>
+  </p>
+  <div style="display:flex;gap:10px">
+    <input id="search-input" placeholder='e.g. "young males from nigeria"'
+           style="flex:1" onkeydown="if(event.key==='Enter') doSearch()">
+    <button class="btn" onclick="doSearch()">Search</button>
+  </div>
+</div>
+
+<div id="error-msg" class="error-msg"></div>
+<div id="loader">Searching…</div>
+
+<div id="results-container" style="display:none">
+  <div class="card" style="padding:0">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Gender</th><th>Age</th><th>Age Group</th><th>Country</th></tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="pagination" id="pagination">
+    <button id="btn-prev" onclick="changePage(-1)">&#8592; Prev</button>
+    <span id="page-info"></span>
+    <button id="btn-next" onclick="changePage(1)">Next &#8594;</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = 1;
+const limit     = 10;
+
+async function doSearch(page) {
+  page = page || 1;
+  currentPage = page;
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+
+  showLoading(true);
+  document.getElementById('results-container').style.display = 'none';
+  document.getElementById('error-msg').style.display = 'none';
+
+  try {
+    const qs = new URLSearchParams({ q, page, limit }).toString();
+    const r  = await apiFetch('GET', `/api/profiles/search?${qs}`);
+    const d  = await r.json();
+
+    if (!r.ok) throw new Error(d.message);
+
+    const tbody = document.getElementById('results-body');
+    tbody.innerHTML = '';
+    (d.data || []).forEach(p => {
+      const tr = document.createElement('tr');
+      tr.onclick = () => window.location.href = `/profile/${p.id}`;
+      tr.innerHTML = `
+        <td><strong>${p.name}</strong></td>
+        <td>${p.gender ?? '-'}</td>
+        <td>${p.age ?? '-'}</td>
+        <td>${p.age_group ?? '-'}</td>
+        <td>${p.country_name ?? p.country_id ?? '-'}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('page-info').textContent =
+      `Page ${d.page} of ${d.total_pages} (${d.total} results)`;
+    document.getElementById('btn-prev').disabled = d.page <= 1;
+    document.getElementById('btn-next').disabled = d.page >= d.total_pages;
+    document.getElementById('results-container').style.display = 'block';
+  } catch(e) {
+    showError(e.message || 'Search failed.');
+  } finally {
+    showLoading(false);
+  }
+}
+
+function changePage(delta) { doSearch(currentPage + delta); }
+</script>
+{% endblock %}
