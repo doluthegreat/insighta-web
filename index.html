@@ -1,90 +1,82 @@
-{% extends "base.html" %}
-{% block title %}Search — Insighta Labs+{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Search — Insighta Labs+</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-logo">Insighta Labs+</div>
+            <nav class="sidebar-nav">
+                <a href="index.html" class="active">Search</a>
+            </nav>
+            <div class="sidebar-footer">
+                <button class="btn btn-ghost" onclick="localStorage.clear(); location.href='login.html'">Logout</button>
+            </div>
+        </aside>
 
-{% block content %}
-<h1 class="page-title">Natural Language Search</h1>
-
-<div class="card" style="margin-bottom:24px">
-  <p style="color:var(--muted);font-size:.875rem;margin-bottom:16px">
-    Try: <em>"young males from nigeria"</em>, <em>"senior female adults"</em>, <em>"adults over 30 from kenya"</em>
-  </p>
-  <div style="display:flex;gap:10px">
-    <input id="search-input" placeholder='e.g. "young males from nigeria"'
-           style="flex:1" onkeydown="if(event.key==='Enter') doSearch()">
-    <button class="btn" onclick="doSearch()">Search</button>
-  </div>
-</div>
-
-<div id="error-msg" class="error-msg"></div>
-<div id="loader">Searching…</div>
-
-<div id="results-container" style="display:none">
-  <div class="card" style="padding:0">
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Name</th><th>Gender</th><th>Age</th><th>Age Group</th><th>Country</th></tr>
-        </thead>
-        <tbody id="results-body"></tbody>
-      </table>
+        <main class="main-content">
+            <h1 class="page-title">Natural Language Search</h1>
+            <div class="card">
+                <div style="display:flex;gap:10px">
+                    <input id="search-input" placeholder='e.g. "young males from nigeria"' style="flex:1">
+                    <button class="btn" onclick="doSearch()">Search</button>
+                </div>
+            </div>
+            <div id="error-msg" class="error-msg" style="display:none; margin-top:10px;"></div>
+            <div id="loader" style="display:none; text-align:center; padding:20px;">Searching...</div>
+            <div id="results-container" style="display:none; margin-top:20px;">
+                <div class="card" style="padding:0">
+                    <table>
+                        <thead><tr><th>Name</th><th>Age</th><th>Country</th></tr></thead>
+                        <tbody id="results-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
     </div>
-  </div>
-  <div class="pagination" id="pagination">
-    <button id="btn-prev" onclick="changePage(-1)">&#8592; Prev</button>
-    <span id="page-info"></span>
-    <button id="btn-next" onclick="changePage(1)">Next &#8594;</button>
-  </div>
-</div>
-{% endblock %}
 
-{% block scripts %}
-<script>
-let currentPage = 1;
-const limit     = 10;
+    <script>
+        const API_BASE = "https://insighta-backend-production-4f18.up.railway.app";
 
-async function doSearch(page) {
-  page = page || 1;
-  currentPage = page;
-  const q = document.getElementById('search-input').value.trim();
-  if (!q) return;
+        window.onload = () => {
+            const token = new URLSearchParams(window.location.search).get('token');
+            if (token) {
+                localStorage.setItem('insighta_jwt', token);
+                window.history.replaceState({}, document.title, "/index.html");
+            }
+            if (!localStorage.getItem('insighta_jwt')) window.location.href = "login.html";
+        };
 
-  showLoading(true);
-  document.getElementById('results-container').style.display = 'none';
-  document.getElementById('error-msg').style.display = 'none';
+        async function doSearch() {
+            const q = document.getElementById('search-input').value;
+            const loader = document.getElementById('loader');
+            const err = document.getElementById('error-msg');
+            
+            loader.style.display = 'block';
+            err.style.display = 'none';
 
-  try {
-    const qs = new URLSearchParams({ q, page, limit }).toString();
-    const r  = await apiFetch('GET', `/api/profiles/search?${qs}`);
-    const d  = await r.json();
+            try {
+                const res = await fetch(`${API_BASE}/api/profiles/search?q=${encodeURIComponent(q)}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('insighta_jwt')}` }
+                });
+                const d = await res.json();
+                if (!res.ok) throw new Error(d.message || "Search failed");
 
-    if (!r.ok) throw new Error(d.message);
-
-    const tbody = document.getElementById('results-body');
-    tbody.innerHTML = '';
-    (d.data || []).forEach(p => {
-      const tr = document.createElement('tr');
-      tr.onclick = () => window.location.href = `/profile/${p.id}`;
-      tr.innerHTML = `
-        <td><strong>${p.name}</strong></td>
-        <td>${p.gender ?? '-'}</td>
-        <td>${p.age ?? '-'}</td>
-        <td>${p.age_group ?? '-'}</td>
-        <td>${p.country_name ?? p.country_id ?? '-'}</td>`;
-      tbody.appendChild(tr);
-    });
-
-    document.getElementById('page-info').textContent =
-      `Page ${d.page} of ${d.total_pages} (${d.total} results)`;
-    document.getElementById('btn-prev').disabled = d.page <= 1;
-    document.getElementById('btn-next').disabled = d.page >= d.total_pages;
-    document.getElementById('results-container').style.display = 'block';
-  } catch(e) {
-    showError(e.message || 'Search failed.');
-  } finally {
-    showLoading(false);
-  }
-}
-
-function changePage(delta) { doSearch(currentPage + delta); }
-</script>
-{% endblock %}
+                const tbody = document.getElementById('results-body');
+                tbody.innerHTML = d.data.map(p => `
+                    <tr><td>${p.name}</td><td>${p.age || '-'}</td><td>${p.country_name || '-'}</td></tr>
+                `).join('');
+                document.getElementById('results-container').style.display = 'block';
+            } catch (e) {
+                err.textContent = e.message;
+                err.style.display = 'block';
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
