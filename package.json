@@ -1,0 +1,11 @@
+{
+  "name": "insighta-web",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "serve .",
+    "build": "echo 'no build step'"
+  },
+  "dependencies": {
+    "serve": "^14.2.0"
+  }
+}
