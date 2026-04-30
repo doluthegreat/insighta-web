@@ -1,24 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Search — Insighta Labs+</title>
+    <link rel="stylesheet" href="style.css">
+</head>
 <body>
-    <!-- This wrapper ensures everything stays in a centered column -->
-    <div style="display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 800px;">
+    <div class="search-container">
+        <h1>Insighta Labs+</h1>
+        <p>Institutional Intelligence Portal</p>
+
+        <input type="text" id="query" placeholder="Search profiles...">
+        <button onclick="doSearch()" style="margin-top:20px">Execute Query</button>
         
-        <header>
-            <h1>Insighta Labs+</h1>
-            <p>Institutional Intelligence Portal</p>
-        </header>
-
-        <div class="search-container">
-            <input type="text" id="query" placeholder="Search profiles...">
-            <br>
-            <button onclick="doSearch()">Execute Query</button>
-        </div>
-
-        <!-- Results will appear centered underneath -->
-        <div id="results" style="width: 100%;">
-            <table id="resultsTable" style="display:none; margin: 40px auto;">
-                <!-- ... existing table code ... -->
-            </table>
-        </div>
-
+        <div id="results"></div>
+        <button onclick="logout()" style="margin-top:50px; background:#ff3b30; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer">Logout</button>
     </div>
+
+    <script>
+        // --- AUTH GUARD ---
+        const params = new URLSearchParams(window.location.search);
+        const tokenFromUrl = params.get('token');
+
+        if (tokenFromUrl) {
+            localStorage.setItem('insighta_jwt', tokenFromUrl);
+            window.history.replaceState({}, document.title, "/index.html");
+        }
+
+        if (!localStorage.getItem('insighta_jwt')) {
+            window.location.href = "login.html";
+        }
+
+        // --- SEARCH LOGIC ---
+        async function doSearch() {
+            const q = document.getElementById('query').value;
+            const token = localStorage.getItem('insighta_jwt');
+            // Fetch logic here...
+        }
+
+        function logout() {
+            localStorage.removeItem('insighta_jwt');
+            window.location.href = "login.html";
+        }
+    </script>
 </body>
+</html>
