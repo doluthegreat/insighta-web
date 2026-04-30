@@ -75,3 +75,37 @@ button:disabled { opacity: .35; cursor: default; }
 #loader { display: none; color: var(--muted); font-size: .9rem; padding: 20px 0; text-align: center; }
 .detail-grid { display: grid; grid-template-columns: 160px 1fr; gap: 10px 20px; font-size: .9rem; }
 .detail-label { color: var(--muted); }
+
+.search-box {
+    border-top: 4px solid var(--accent);
+    background: linear-gradient(145deg, var(--surface) 0%, #1e222d 100%);
+}
+
+#loader {
+    text-align: center;
+    padding: 50px;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(108, 99, 255, 0.1);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s ease-in-out infinite;
+    margin: 0 auto 15px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+tbody tr:hover {
+    background: rgba(108, 99, 255, 0.05) !important;
+}
+
+.badge {
+    background: var(--border);
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-right: 5px;
+    font-size: 0.75rem;
+}

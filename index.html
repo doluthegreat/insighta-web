@@ -2,37 +2,72 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Search — Insighta Labs+</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insighta Labs+ | Intelligence</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app-layout">
+        <!-- Sidebar -->
         <aside class="sidebar">
-            <div class="sidebar-logo">Insighta Labs+</div>
+            <div class="sidebar-logo">
+                <span style="color: var(--accent2);">Insighta</span> Labs+
+            </div>
             <nav class="sidebar-nav">
-                <a href="index.html" class="active">Search</a>
+                <a href="index.html" class="active">
+                    <span style="margin-right: 10px;">🔍</span> Natural Search
+                </a>
+                <a href="#" style="opacity: 0.5; cursor: not-allowed;">
+                    <span style="margin-right: 10px;">📊</span> Analytics
+                </a>
             </nav>
             <div class="sidebar-footer">
-                <button class="btn btn-ghost" onclick="localStorage.clear(); location.href='login.html'">Logout</button>
+                <button class="btn btn-ghost" style="width: 100%;" onclick="logout()">Logout</button>
             </div>
         </aside>
 
+        <!-- Main Content -->
         <main class="main-content">
-            <h1 class="page-title">Natural Language Search</h1>
-            <div class="card">
-                <div style="display:flex;gap:10px">
-                    <input id="search-input" placeholder='e.g. "young males from nigeria"' style="flex:1">
-                    <button class="btn" onclick="doSearch()">Search</button>
+            <header style="margin-bottom: 40px;">
+                <h1 class="page-title">Intelligence Portal</h1>
+                <p style="color: var(--muted);">Querying Profile Intelligence API v3.1</p>
+            </header>
+
+            <div class="card search-box">
+                <label style="display: block; margin-bottom: 12px; font-weight: 600; font-size: 0.9rem;">Ask in plain English</label>
+                <div style="display:flex; gap:12px">
+                    <input id="search-input" placeholder='e.g. "young males from nigeria over 25"'
+                           style="flex:1; padding: 12px 16px;" onkeydown="if(event.key==='Enter') doSearch()">
+                    <button class="btn" onclick="doSearch()" style="padding: 0 24px;">Search Intelligence</button>
+                </div>
+                <div style="margin-top: 12px; font-size: 0.8rem; color: var(--muted);">
+                    Examples: <span class="badge" style="cursor:pointer" onclick="fillSearch(this)">senior female adults</span> 
+                    <span class="badge" style="cursor:pointer" onclick="fillSearch(this)">nigeria</span>
                 </div>
             </div>
-            <div id="error-msg" class="error-msg" style="display:none; margin-top:10px;"></div>
-            <div id="loader" style="display:none; text-align:center; padding:20px;">Searching...</div>
-            <div id="results-container" style="display:none; margin-top:20px;">
-                <div class="card" style="padding:0">
-                    <table>
-                        <thead><tr><th>Name</th><th>Age</th><th>Country</th></tr></thead>
-                        <tbody id="results-body"></tbody>
-                    </table>
+
+            <div id="error-msg" class="error-msg"></div>
+            
+            <div id="loader">
+                <div class="spinner"></div>
+                <p>Analyzing Request...</p>
+            </div>
+
+            <div id="results-container" style="display:none">
+                <div class="card" style="padding:0; overflow: hidden;">
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Full Name</th><th>Gender</th><th>Age</th><th>Location</th></tr>
+                            </thead>
+                            <tbody id="results-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="pagination">
+                    <button class="btn btn-ghost" id="btn-prev" onclick="changePage(-1)">← Previous</button>
+                    <span id="page-info"></span>
+                    <button class="btn btn-ghost" id="btn-next" onclick="changePage(1)">Next →</button>
                 </div>
             </div>
         </main>
@@ -41,41 +76,84 @@
     <script>
         const API_BASE = "https://insighta-backend-production-4f18.up.railway.app";
 
-        window.onload = () => {
-            const token = new URLSearchParams(window.location.search).get('token');
-            if (token) {
-                localStorage.setItem('insighta_jwt', token);
-                window.history.replaceState({}, document.title, "/index.html");
-            }
-            if (!localStorage.getItem('insighta_jwt')) window.location.href = "login.html";
-        };
-
-        async function doSearch() {
-            const q = document.getElementById('search-input').value;
-            const loader = document.getElementById('loader');
-            const err = document.getElementById('error-msg');
+        // 1. IMPROVED AUTH CHECK (PREVENTS BOUNCE)
+        function checkAuth() {
+            const params = new URLSearchParams(window.location.search);
+            const tokenFromUrl = params.get('token');
             
-            loader.style.display = 'block';
-            err.style.display = 'none';
+            if (tokenFromUrl) {
+                localStorage.setItem('insighta_jwt', tokenFromUrl);
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
 
+            const token = localStorage.getItem('insighta_jwt');
+            if (!token) {
+                window.location.href = "login.html";
+            }
+        }
+
+        checkAuth(); // Run immediately
+
+        // 2. API CALLS
+        let currentPage = 1;
+
+        async function doSearch(page = 1) {
+            const q = document.getElementById('search-input').value.trim();
+            if (!q) return;
+
+            currentPage = page;
+            toggleLoading(true);
+            
             try {
-                const res = await fetch(`${API_BASE}/api/profiles/search?q=${encodeURIComponent(q)}`, {
+                const res = await fetch(`${API_BASE}/api/profiles/search?q=${encodeURIComponent(q)}&page=${page}&limit=10`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('insighta_jwt')}` }
                 });
+                
+                if (res.status === 401) logout();
                 const d = await res.json();
-                if (!res.ok) throw new Error(d.message || "Search failed");
-
-                const tbody = document.getElementById('results-body');
-                tbody.innerHTML = d.data.map(p => `
-                    <tr><td>${p.name}</td><td>${p.age || '-'}</td><td>${p.country_name || '-'}</td></tr>
-                `).join('');
-                document.getElementById('results-container').style.display = 'block';
+                
+                renderResults(d);
             } catch (e) {
-                err.textContent = e.message;
-                err.style.display = 'block';
+                showError("Service temporarily unavailable. Check backend logs.");
             } finally {
-                loader.style.display = 'none';
+                toggleLoading(false);
             }
+        }
+
+        function renderResults(d) {
+            const tbody = document.getElementById('results-body');
+            tbody.innerHTML = (d.data || []).map(p => `
+                <tr>
+                    <td><strong>${p.name}</strong></td>
+                    <td>${p.gender || '-'}</td>
+                    <td>${p.age || '-'}</td>
+                    <td><span class="badge badge-analyst">${p.country_name || 'Global'}</span></td>
+                </tr>
+            `).join('');
+
+            document.getElementById('page-info').textContent = `Page ${d.page} / ${d.total_pages}`;
+            document.getElementById('results-container').style.display = 'block';
+        }
+
+        function toggleLoading(show) {
+            document.getElementById('loader').style.display = show ? 'block' : 'none';
+            if(show) document.getElementById('results-container').style.display = 'none';
+        }
+
+        function showError(msg) {
+            const err = document.getElementById('error-msg');
+            err.textContent = msg;
+            err.style.display = 'block';
+        }
+
+        function fillSearch(el) {
+            document.getElementById('search-input').value = el.textContent;
+            doSearch();
+        }
+
+        function logout() {
+            localStorage.removeItem('insighta_jwt');
+            window.location.href = "login.html";
         }
     </script>
 </body>
